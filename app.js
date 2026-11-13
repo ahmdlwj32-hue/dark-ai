@@ -2,8 +2,8 @@
 // DARK AI - Supabase Configuration
 // =====================================
 
-const SUPABASE_URL = "ضع_Project_URL_هنا";
-const SUPABASE_KEY = "ضع_Publishable_Key_هنا";
+const SUPABASE_URL = "https://beumygquyxotdvthitcq.supabase.co/rest/v1/";
+const SUPABASE_KEY = "sb_publishable_kDtG8O1WMK_6CYaddWOeOQ_cmQ6Gs3D";
 
 const client = window.supabase.createClient(
   SUPABASE_URL,
