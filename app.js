@@ -11,6 +11,12 @@ const client = window.supabase.createClient(
 );
 
 // =====================================
+// تهيئة مدير المنتجات
+// =====================================
+
+ProductsManager.init(client);
+
+// =====================================
 // إعداد الواجهة
 // =====================================
 
@@ -101,6 +107,117 @@ loginStyle.textContent = `
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
+
+.product-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.product-form input,
+.product-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 9px;
+  font-family: Arial;
+  font-size: 14px;
+}
+
+.product-form textarea {
+  resize: vertical;
+  min-height: 75px;
+}
+
+.product-primary {
+  background: #101a2b;
+  color: white;
+  border: 0;
+  padding: 13px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.product-secondary {
+  background: #eee;
+  color: #333;
+  border: 0;
+  padding: 11px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.product-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.product-card {
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 13px;
+  background: #fff;
+}
+
+.product-card h3 {
+  margin: 0 0 8px;
+  color: #101a2b;
+}
+
+.product-card p {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.7;
+}
+
+.product-price {
+  color: #92733d;
+  font-weight: bold;
+  margin: 8px 0;
+}
+
+.product-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.product-actions button {
+  flex: 1;
+  padding: 9px;
+  border: 0;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.edit-product {
+  background: #eee2c9;
+  color: #604b25;
+}
+
+.delete-product {
+  background: #f8e1e1;
+  color: #a22;
+}
+
+.product-message {
+  padding: 10px;
+  border-radius: 8px;
+  margin: 10px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #f5f5f5;
+}
+
+.product-image {
+  width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
 `;
 
 document.head.appendChild(loginStyle);
@@ -114,6 +231,7 @@ loginBox.id = "darkLogin";
 
 loginBox.innerHTML = `
   <div class="login-card">
+
     <div class="login-logo">DARK AI</div>
 
     <h2 id="formTitle">مرحباً بعودتك</h2>
@@ -173,6 +291,7 @@ loginBox.innerHTML = `
     </span>
 
     <div id="loginMessage"></div>
+
   </div>
 `;
 
@@ -186,6 +305,14 @@ const loginForm = document.getElementById("loginForm");
 const recoveryForm = document.getElementById("recoveryForm");
 const loginMessage = document.getElementById("loginMessage");
 const loginButton = document.getElementById("loginButton");
+
+// =====================================
+// وضع استعادة كلمة المرور
+// =====================================
+
+let recoveryMode =
+  location.hash.includes("type=recovery") ||
+  location.search.includes("type=recovery");
 
 // =====================================
 // عرض شاشة الدخول
@@ -213,10 +340,11 @@ function showLogin() {
 
   loginMessage.style.color = "#b33";
   loginMessage.textContent = "";
+
 }
 
 // =====================================
-// عرض شاشة استعادة كلمة المرور
+// شاشة استعادة كلمة المرور
 // =====================================
 
 function showRecovery() {
@@ -240,6 +368,7 @@ function showRecovery() {
     "none";
 
   loginMessage.textContent = "";
+
 }
 
 // =====================================
@@ -268,14 +397,16 @@ loginForm.addEventListener("submit", async event => {
   loginButton.textContent = "تسجيل الدخول";
 
   if (error) {
+
     loginMessage.textContent =
       "تعذر تسجيل الدخول: " + error.message;
+
   }
 
 });
 
 // =====================================
-// طلب رابط استعادة كلمة المرور
+// استعادة كلمة المرور
 // =====================================
 
 document.getElementById("forgotPassword").onclick =
@@ -285,6 +416,7 @@ async () => {
     document.getElementById("loginEmail").value.trim();
 
   if (!email) {
+
     loginMessage.textContent =
       "أدخل بريدك الإلكتروني أولاً.";
 
@@ -292,6 +424,7 @@ async () => {
   }
 
   loginMessage.style.color = "#777";
+
   loginMessage.textContent =
     "جارٍ إرسال رابط الاستعادة...";
 
@@ -357,7 +490,7 @@ recoveryForm.addEventListener("submit", async event => {
   button.textContent = "جارٍ الحفظ...";
 
   const { error } = await client.auth.updateUser({
-    password: password
+    password
   });
 
   button.disabled = false;
@@ -402,6 +535,8 @@ function showDashboard() {
     element.style.display = "";
   });
 
+  loadProductCount();
+
 }
 
 // =====================================
@@ -421,7 +556,7 @@ async function logoutDARKAI() {
 }
 
 // =====================================
-// وظائف لوحة التحكم
+// عناصر النوافذ
 // =====================================
 
 const panel = document.getElementById("panel");
@@ -441,7 +576,483 @@ document.getElementById("closePanel").onclick = () => {
   panel.close();
 };
 
+// =====================================
+// أدوات مساعدة آمنة
+// =====================================
+
+function escapeHTML(value) {
+
+  return String(value ?? "").replace(/[&<>"']/g, char => {
+
+    const chars = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    };
+
+    return chars[char];
+
+  });
+
+}
+
+function showProductMessage(message, isError = false) {
+
+  const box = document.getElementById("productMessage");
+
+  if (!box) return;
+
+  box.style.color = isError ? "#a22" : "#287a43";
+  box.textContent = message;
+
+}
+
+// =====================================
+// عدد المنتجات
+// =====================================
+
+async function loadProductCount() {
+
+  const counter = document.getElementById("productCount");
+
+  if (!counter) return;
+
+  const { count, error } = await client
+    .from("products")
+    .select("*", { count: "exact", head: true });
+
+  if (error) {
+
+    console.error("Product count error:", error.message);
+
+    return;
+  }
+
+  counter.textContent = count ?? 0;
+
+}
+
+// =====================================
+// واجهة إدارة المنتجات
+// =====================================
+
+document.getElementById("productsBtn").onclick = () => {
+
+  show("إدارة المنتجات", `
+
+    <div>
+
+      <p>
+        إدارة منتجات متجر دارك.
+      </p>
+
+      <button
+        class="product-primary"
+        id="addProductBtn"
+        style="width:100%"
+      >
+        + إضافة منتج جديد
+      </button>
+
+      <div id="productMessage" class="product-message">
+        جارٍ تحميل المنتجات...
+      </div>
+
+      <div id="productList" class="product-list"></div>
+
+    </div>
+
+  `);
+
+  loadProducts();
+
+};
+
+// =====================================
+// عرض المنتجات
+// =====================================
+
+async function loadProducts() {
+
+  const list = document.getElementById("productList");
+
+  if (!list) return;
+
+  list.innerHTML = "<p>جارٍ تحميل المنتجات...</p>";
+
+  const products = await ProductsManager.getAll();
+
+  if (!document.getElementById("productList")) return;
+
+  if (!products) {
+
+    list.innerHTML =
+      "<p>تعذر تحميل المنتجات.</p>";
+
+    return;
+  }
+
+  if (products.length === 0) {
+
+    list.innerHTML =
+      "<p>لا توجد منتجات حتى الآن. أضف منتجك الأول.</p>";
+
+    showProductMessage("قاعدة البيانات جاهزة لاستقبال المنتجات.");
+
+    return;
+  }
+
+  list.innerHTML = products.map(product => {
+
+    const image = product.image_url
+      ? `
+        <img
+          class="product-image"
+          src="${escapeHTML(product.image_url)}"
+          alt="${escapeHTML(product.name)}"
+          onerror="this.style.display='none'"
+        >
+      `
+      : "";
+
+    return `
+
+      <article class="product-card">
+
+        ${image}
+
+        <h3>${escapeHTML(product.name)}</h3>
+
+        <p>
+          ${escapeHTML(product.description || "لا يوجد وصف")}
+        </p>
+
+        <div class="product-price">
+          السعر: ${escapeHTML(product.price ?? 0)} ريال
+        </div>
+
+        <p>
+          التصنيف: ${escapeHTML(product.category || "غير محدد")}
+        </p>
+
+        <p>
+          المخزون: ${escapeHTML(product.stock ?? 0)}
+        </p>
+
+        <div class="product-actions">
+
+          <button
+            class="edit-product"
+            data-edit="${escapeHTML(product.id)}"
+          >
+            تعديل
+          </button>
+
+          <button
+            class="delete-product"
+            data-delete="${escapeHTML(product.id)}"
+          >
+            حذف
+          </button>
+
+        </div>
+
+      </article>
+
+    `;
+
+  }).join("");
+
+  showProductMessage(
+    "تم تحميل " + products.length + " منتج بنجاح."
+  );
+
+  loadProductCount();
+
+}
+
+// =====================================
+// نموذج إضافة منتج
+// =====================================
+
+function showProductForm(product = null) {
+
+  const editing = product !== null;
+
+  show(
+    editing ? "تعديل المنتج" : "إضافة منتج جديد",
+
+    `
+
+      <form id="productForm" class="product-form">
+
+        <input
+          type="text"
+          id="productName"
+          placeholder="اسم المنتج"
+          required
+          maxlength="150"
+          value="${escapeHTML(product?.name || "")}"
+        >
+
+        <textarea
+          id="productDescription"
+          placeholder="وصف المنتج"
+        >${escapeHTML(product?.description || "")}</textarea>
+
+        <input
+          type="number"
+          id="productPrice"
+          placeholder="السعر بالريال اليمني"
+          min="0"
+          step="0.01"
+          required
+          value="${escapeHTML(product?.price ?? "")}"
+        >
+
+        <input
+          type="text"
+          id="productCategory"
+          placeholder="التصنيف"
+          value="${escapeHTML(product?.category || "")}"
+        >
+
+        <input
+          type="number"
+          id="productStock"
+          placeholder="الكمية في المخزون"
+          min="0"
+          step="1"
+          value="${escapeHTML(product?.stock ?? 0)}"
+        >
+
+        <input
+          type="url"
+          id="productImage"
+          placeholder="رابط صورة المنتج (اختياري)"
+          value="${escapeHTML(product?.image_url || "")}"
+        >
+
+        <button
+          type="submit"
+          class="product-primary"
+          id="saveProductBtn"
+        >
+          ${editing ? "حفظ التعديلات" : "حفظ المنتج"}
+        </button>
+
+        <button
+          type="button"
+          class="product-secondary"
+          id="cancelProductBtn"
+        >
+          إلغاء
+        </button>
+
+        <div id="productFormMessage"></div>
+
+      </form>
+
+    `
+
+  );
+
+  document.getElementById("cancelProductBtn").onclick = () => {
+
+    show("إدارة المنتجات", `
+      <button class="product-primary" id="addProductBtn">
+        + إضافة منتج جديد
+      </button>
+      <div id="productMessage" class="product-message"></div>
+      <div id="productList" class="product-list"></div>
+    `);
+
+    loadProducts();
+
+  };
+
+  document.getElementById("productForm").onsubmit =
+  async event => {
+
+    event.preventDefault();
+
+    const button =
+      document.getElementById("saveProductBtn");
+
+    const message =
+      document.getElementById("productFormMessage");
+
+    const name =
+      document.getElementById("productName").value.trim();
+
+    const description =
+      document.getElementById("productDescription").value.trim();
+
+    const price =
+      Number(document.getElementById("productPrice").value);
+
+    const category =
+      document.getElementById("productCategory").value.trim();
+
+    const stock =
+      Number(document.getElementById("productStock").value);
+
+    const image_url =
+      document.getElementById("productImage").value.trim();
+
+    if (!name) {
+
+      message.textContent = "أدخل اسم المنتج.";
+
+      return;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+
+      message.textContent = "أدخل سعرًا صحيحًا.";
+
+      return;
+    }
+
+    if (!Number.isInteger(stock) || stock < 0) {
+
+      message.textContent = "أدخل كمية صحيحة للمخزون.";
+
+      return;
+    }
+
+    const data = {
+      name,
+      description,
+      price,
+      category,
+      stock,
+      image_url
+    };
+
+    button.disabled = true;
+    button.textContent = "جارٍ الحفظ...";
+
+    try {
+
+      if (editing) {
+
+        await ProductsManager.update(product.id, data);
+
+      } else {
+
+        await ProductsManager.add(data);
+
+      }
+
+      panel.close();
+
+      openProductsAgain();
+
+      loadProductCount();
+
+    } catch (error) {
+
+      message.style.color = "#a22";
+
+      message.textContent =
+        "حدث خطأ أثناء الحفظ: " + error.message;
+
+      button.disabled = false;
+
+      button.textContent =
+        editing ? "حفظ التعديلات" : "حفظ المنتج";
+
+    }
+
+  };
+
+}
+
+// =====================================
+// العودة إلى قائمة المنتجات
+// =====================================
+
+function openProductsAgain() {
+
+  document.getElementById("productsBtn").click();
+
+}
+
+// =====================================
+// أزرار إدارة المنتجات
+// =====================================
+
+document.addEventListener("click", async event => {
+
+  const addButton = event.target.closest("#addProductBtn");
+
+  if (addButton) {
+
+    showProductForm();
+
+    return;
+  }
+
+  const editButton = event.target.closest("[data-edit]");
+
+  if (editButton) {
+
+    const id = editButton.dataset.edit;
+
+    const products = await ProductsManager.getAll();
+
+    const product = products.find(item =>
+      String(item.id) === String(id)
+    );
+
+    if (product) {
+
+      showProductForm(product);
+
+    }
+
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete]");
+
+  if (deleteButton) {
+
+    const id = deleteButton.dataset.delete;
+
+    const confirmed =
+      confirm("هل أنت متأكد من حذف هذا المنتج؟");
+
+    if (!confirmed) return;
+
+    deleteButton.disabled = true;
+
+    try {
+
+      await ProductsManager.delete(id);
+
+      openProductsAgain();
+
+      loadProductCount();
+
+    } catch (error) {
+
+      alert("تعذر حذف المنتج: " + error.message);
+
+      deleteButton.disabled = false;
+
+    }
+
+  }
+
+});
+
+// =====================================
 // المساعدون
+// =====================================
 
 document.querySelectorAll(".agent").forEach(btn => {
 
@@ -450,7 +1061,8 @@ document.querySelectorAll(".agent").forEach(btn => {
     const n = btn.dataset.agent;
 
     show(n, `
-      <p>أنا ${n} في فريق DARK AI.</p>
+
+      <p>أنا ${escapeHTML(n)} في فريق DARK AI.</p>
 
       <p>
         سيتم تفعيل المهام الذكية في المرحلة القادمة.
@@ -460,59 +1072,61 @@ document.querySelectorAll(".agent").forEach(btn => {
         placeholder="اكتب طلبك هنا..."
         rows="3"
       ></textarea>
+
     `);
 
   };
 
 });
 
-// إدارة المنتجات
-
-document.getElementById("productsBtn").onclick = () => {
-
-  show("إدارة المنتجات", `
-    <p>
-      إضافة المنتجات وأسعارها وصورها ومخزونها.
-    </p>
-
-    <p><b>حالة القسم:</b> قيد التطوير.</p>
-  `);
-
-};
-
+// =====================================
 // صناعة المحتوى
+// =====================================
 
 document.getElementById("contentBtn").onclick = () => {
 
   show("صناعة المحتوى", `
+
     <p>
       إنشاء المنشورات والإعلانات وأوصاف المنتجات.
     </p>
 
-    <p><b>حالة القسم:</b> قيد التطوير.</p>
+    <p>
+      <b>حالة القسم:</b> قيد التطوير.
+    </p>
+
   `);
 
 };
 
+// =====================================
 // خطة النشر
+// =====================================
 
 document.getElementById("calendarBtn").onclick = () => {
 
   show("خطة النشر", `
+
     <p>
       تنظيم المنشورات والقصص ومقاطع Reels.
     </p>
 
-    <p><b>حالة القسم:</b> قيد التطوير.</p>
+    <p>
+      <b>حالة القسم:</b> قيد التطوير.
+    </p>
+
   `);
 
 };
 
+// =====================================
 // الإعدادات
+// =====================================
 
 document.getElementById("settingsBtn").onclick = () => {
 
   show("إعدادات دارك", `
+
     <p>
       <b>النشاط:</b>
       متجر إلكتروني للمواد المنزلية
@@ -528,9 +1142,13 @@ document.getElementById("settingsBtn").onclick = () => {
       الريال اليمني
     </p>
 
-    <button onclick="logoutDARKAI()">
+    <button
+      class="product-primary"
+      onclick="logoutDARKAI()"
+    >
       تسجيل الخروج
     </button>
+
   `);
 
 };
@@ -538,10 +1156,6 @@ document.getElementById("settingsBtn").onclick = () => {
 // =====================================
 // مراقبة جلسة Supabase
 // =====================================
-
-let recoveryMode =
-  location.hash.includes("type=recovery") ||
-  location.search.includes("type=recovery");
 
 client.auth.onAuthStateChange((event, session) => {
 
