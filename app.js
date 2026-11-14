@@ -2,7 +2,7 @@
 // DARK AI - Supabase Configuration
 // =====================================
 
-const SUPABASE_URL = "https://beumygquyxotdvthitcq.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://beumygquyxotdvthitcq.supabase.co";
 const SUPABASE_KEY = "sb_publishable_kDtG8O1WMK_6CYaddWOeOQ_cmQ6Gs3D";
 
 const client = window.supabase.createClient(
