@@ -99,6 +99,7 @@ loginStyle.textContent = `
   font-size: 13px;
   margin-top: 12px;
   line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 `;
 
@@ -114,10 +115,15 @@ loginBox.id = "darkLogin";
 loginBox.innerHTML = `
   <div class="login-card">
     <div class="login-logo">DARK AI</div>
+
     <h2 id="formTitle">مرحباً بعودتك</h2>
-    <p id="formDescription">سجل الدخول للوصول إلى لوحة دارك</p>
+
+    <p id="formDescription">
+      سجل الدخول للوصول إلى لوحة دارك
+    </p>
 
     <form id="loginForm">
+
       <input
         type="email"
         id="loginEmail"
@@ -135,9 +141,11 @@ loginBox.innerHTML = `
       <button type="submit" id="loginButton">
         تسجيل الدخول
       </button>
+
     </form>
 
     <form id="recoveryForm" style="display:none">
+
       <input
         type="password"
         id="newPassword"
@@ -157,6 +165,7 @@ loginBox.innerHTML = `
       <button type="submit" id="recoveryButton">
         حفظ كلمة المرور الجديدة
       </button>
+
     </form>
 
     <span class="login-link" id="forgotPassword">
@@ -169,6 +178,10 @@ loginBox.innerHTML = `
 
 document.body.appendChild(loginBox);
 
+// =====================================
+// عناصر الواجهة
+// =====================================
+
 const loginForm = document.getElementById("loginForm");
 const recoveryForm = document.getElementById("recoveryForm");
 const loginMessage = document.getElementById("loginMessage");
@@ -179,6 +192,7 @@ const loginButton = document.getElementById("loginButton");
 // =====================================
 
 function showLogin() {
+
   loginBox.style.display = "flex";
 
   originalElements.forEach(element => {
@@ -194,8 +208,10 @@ function showLogin() {
   document.getElementById("formDescription").textContent =
     "سجل الدخول للوصول إلى لوحة دارك";
 
-  document.getElementById("forgotPassword").style.display = "block";
+  document.getElementById("forgotPassword").style.display =
+    "block";
 
+  loginMessage.style.color = "#b33";
   loginMessage.textContent = "";
 }
 
@@ -204,6 +220,7 @@ function showLogin() {
 // =====================================
 
 function showRecovery() {
+
   loginBox.style.display = "flex";
 
   originalElements.forEach(element => {
@@ -219,7 +236,8 @@ function showRecovery() {
   document.getElementById("formDescription").textContent =
     "أدخل كلمة المرور الجديدة لحسابك";
 
-  document.getElementById("forgotPassword").style.display = "none";
+  document.getElementById("forgotPassword").style.display =
+    "none";
 
   loginMessage.textContent = "";
 }
@@ -229,13 +247,17 @@ function showRecovery() {
 // =====================================
 
 loginForm.addEventListener("submit", async event => {
+
   event.preventDefault();
 
   loginButton.disabled = true;
   loginButton.textContent = "جارٍ التحقق...";
 
-  const email = document.getElementById("loginEmail").value.trim();
-  const password = document.getElementById("loginPassword").value;
+  const email =
+    document.getElementById("loginEmail").value.trim();
+
+  const password =
+    document.getElementById("loginPassword").value;
 
   const { error } = await client.auth.signInWithPassword({
     email,
@@ -247,36 +269,55 @@ loginForm.addEventListener("submit", async event => {
 
   if (error) {
     loginMessage.textContent =
-      "تعذر تسجيل الدخول. تحقق من البيانات وحاول مجدداً.";
+      "تعذر تسجيل الدخول: " + error.message;
   }
+
 });
 
 // =====================================
 // طلب رابط استعادة كلمة المرور
 // =====================================
 
-document.getElementById("forgotPassword").onclick = async () => {
+document.getElementById("forgotPassword").onclick =
+async () => {
 
-  const email = document.getElementById("loginEmail").value.trim();
+  const email =
+    document.getElementById("loginEmail").value.trim();
 
   if (!email) {
-    loginMessage.textContent = "أدخل بريدك الإلكتروني أولاً.";
+    loginMessage.textContent =
+      "أدخل بريدك الإلكتروني أولاً.";
+
     return;
   }
 
-  loginMessage.textContent = "جارٍ إرسال رابط الاستعادة...";
+  loginMessage.style.color = "#777";
+  loginMessage.textContent =
+    "جارٍ إرسال رابط الاستعادة...";
 
-  const { error } = await client.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + window.location.pathname
-  });
+  const { error } =
+    await client.auth.resetPasswordForEmail(email, {
+
+      redirectTo:
+        window.location.origin + window.location.pathname
+
+    });
 
   if (error) {
-    loginMessage.textContent = "تعذر إرسال الرابط. حاول مجدداً.";
+
+    loginMessage.style.color = "#b33";
+
+    loginMessage.textContent =
+      "سبب الخطأ: " + error.message;
+
     return;
   }
+
+  loginMessage.style.color = "green";
 
   loginMessage.textContent =
     "تم إرسال رابط الاستعادة إلى بريدك الإلكتروني.";
+
 };
 
 // =====================================
@@ -284,21 +325,31 @@ document.getElementById("forgotPassword").onclick = async () => {
 // =====================================
 
 recoveryForm.addEventListener("submit", async event => {
+
   event.preventDefault();
 
-  const password = document.getElementById("newPassword").value;
-  const confirm = document.getElementById("confirmPassword").value;
-  const button = document.getElementById("recoveryButton");
+  const password =
+    document.getElementById("newPassword").value;
+
+  const confirm =
+    document.getElementById("confirmPassword").value;
+
+  const button =
+    document.getElementById("recoveryButton");
 
   if (password.length < 8) {
+
     loginMessage.textContent =
       "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل.";
+
     return;
   }
 
   if (password !== confirm) {
+
     loginMessage.textContent =
       "كلمتا المرور غير متطابقتين.";
+
     return;
   }
 
@@ -313,20 +364,30 @@ recoveryForm.addEventListener("submit", async event => {
   button.textContent = "حفظ كلمة المرور الجديدة";
 
   if (error) {
+
     loginMessage.textContent =
-      "تعذر تغيير كلمة المرور. قد يكون رابط الاستعادة منتهي الصلاحية.";
+      "تعذر تغيير كلمة المرور: " + error.message;
+
     return;
   }
 
+  recoveryMode = false;
+
   await client.auth.signOut();
 
-  history.replaceState(null, "", window.location.pathname);
+  history.replaceState(
+    null,
+    "",
+    window.location.pathname
+  );
 
   showLogin();
 
   loginMessage.style.color = "green";
+
   loginMessage.textContent =
     "تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.";
+
 });
 
 // =====================================
@@ -334,11 +395,13 @@ recoveryForm.addEventListener("submit", async event => {
 // =====================================
 
 function showDashboard() {
+
   loginBox.style.display = "none";
 
   originalElements.forEach(element => {
     element.style.display = "";
   });
+
 }
 
 // =====================================
@@ -346,6 +409,7 @@ function showDashboard() {
 // =====================================
 
 async function logoutDARKAI() {
+
   const confirmed = confirm("هل تريد تسجيل الخروج؟");
 
   if (!confirmed) return;
@@ -353,6 +417,7 @@ async function logoutDARKAI() {
   await client.auth.signOut();
 
   showLogin();
+
 }
 
 // =====================================
@@ -364,53 +429,110 @@ const title = document.getElementById("panelTitle");
 const body = document.getElementById("panelBody");
 
 function show(t, html) {
+
   title.textContent = t;
   body.innerHTML = html;
+
   panel.showModal();
+
 }
 
-document.getElementById("closePanel").onclick = () => panel.close();
+document.getElementById("closePanel").onclick = () => {
+  panel.close();
+};
+
+// المساعدون
 
 document.querySelectorAll(".agent").forEach(btn => {
+
   btn.onclick = () => {
+
     const n = btn.dataset.agent;
 
     show(n, `
       <p>أنا ${n} في فريق DARK AI.</p>
-      <p>سيتم تفعيل المهام الذكية في المرحلة القادمة.</p>
-      <textarea placeholder="اكتب طلبك هنا..." rows="3"></textarea>
+
+      <p>
+        سيتم تفعيل المهام الذكية في المرحلة القادمة.
+      </p>
+
+      <textarea
+        placeholder="اكتب طلبك هنا..."
+        rows="3"
+      ></textarea>
     `);
+
   };
+
 });
 
+// إدارة المنتجات
+
 document.getElementById("productsBtn").onclick = () => {
+
   show("إدارة المنتجات", `
-    <p>إضافة المنتجات وأسعارها وصورها ومخزونها.</p>
+    <p>
+      إضافة المنتجات وأسعارها وصورها ومخزونها.
+    </p>
+
     <p><b>حالة القسم:</b> قيد التطوير.</p>
   `);
+
 };
+
+// صناعة المحتوى
 
 document.getElementById("contentBtn").onclick = () => {
+
   show("صناعة المحتوى", `
-    <p>إنشاء المنشورات والإعلانات وأوصاف المنتجات.</p>
+    <p>
+      إنشاء المنشورات والإعلانات وأوصاف المنتجات.
+    </p>
+
     <p><b>حالة القسم:</b> قيد التطوير.</p>
   `);
+
 };
+
+// خطة النشر
 
 document.getElementById("calendarBtn").onclick = () => {
+
   show("خطة النشر", `
-    <p>تنظيم المنشورات والقصص ومقاطع Reels.</p>
+    <p>
+      تنظيم المنشورات والقصص ومقاطع Reels.
+    </p>
+
     <p><b>حالة القسم:</b> قيد التطوير.</p>
   `);
+
 };
 
+// الإعدادات
+
 document.getElementById("settingsBtn").onclick = () => {
+
   show("إعدادات دارك", `
-    <p><b>النشاط:</b> متجر إلكتروني للمواد المنزلية</p>
-    <p><b>النطاق:</b> حضرموت – التوصيل إلى جميع المحافظات</p>
-    <p><b>العملة:</b> الريال اليمني</p>
-    <button onclick="logoutDARKAI()">تسجيل الخروج</button>
+    <p>
+      <b>النشاط:</b>
+      متجر إلكتروني للمواد المنزلية
+    </p>
+
+    <p>
+      <b>النطاق:</b>
+      حضرموت – التوصيل إلى جميع المحافظات
+    </p>
+
+    <p>
+      <b>العملة:</b>
+      الريال اليمني
+    </p>
+
+    <button onclick="logoutDARKAI()">
+      تسجيل الخروج
+    </button>
   `);
+
 };
 
 // =====================================
@@ -424,44 +546,61 @@ let recoveryMode =
 client.auth.onAuthStateChange((event, session) => {
 
   if (event === "PASSWORD_RECOVERY") {
+
     recoveryMode = true;
+
     showRecovery();
+
     return;
   }
 
   if (event === "SIGNED_IN" && !recoveryMode) {
+
     showDashboard();
+
   }
 
   if (event === "SIGNED_OUT") {
+
     showLogin();
+
   }
 
 });
 
 // =====================================
-// التحقق عند فتح التطبيق
+// التحقق من الجلسة
 // =====================================
 
 async function checkSession() {
 
   if (recoveryMode) {
+
     showRecovery();
+
     return;
   }
 
-  const { data, error } = await client.auth.getSession();
+  const { data, error } =
+    await client.auth.getSession();
 
   if (error) {
+
     showLogin();
+
     return;
   }
 
   if (data.session) {
+
     showDashboard();
+
   } else {
+
     showLogin();
+
   }
+
 }
 
 checkSession();
@@ -471,7 +610,13 @@ checkSession();
 // =====================================
 
 if ("serviceWorker" in navigator) {
+
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+
+    navigator.serviceWorker
+      .register("./sw.js")
+      .catch(() => {});
+
   });
+
 }
