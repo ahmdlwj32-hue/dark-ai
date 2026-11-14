@@ -4,7 +4,7 @@
 
 const SUPABASE_URL = "https://beumygquyxotdvthitcq.supabase.co";
 
-// أبقِ Publishable Key الحالي الموجود في ملفك كما هو
+// ضع Publishable Key الحالي هنا، ولا تستخدم service_role
 const SUPABASE_KEY = "sb_publishable_kDtG8O1WMK_6CYaddWOeOQ_cmQ6Gs3D";
 
 const client = window.supabase.createClient(
@@ -117,7 +117,8 @@ loginStyle.textContent = `
 }
 
 .product-form input,
-.product-form textarea {
+.product-form textarea,
+.product-form select {
   width: 100%;
   box-sizing: border-box;
   padding: 12px;
@@ -241,6 +242,24 @@ loginStyle.textContent = `
   font-size: 13px;
   line-height: 1.7;
   overflow-wrap: anywhere;
+}
+
+.product-search,
+.product-filter {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: 1px solid #ddd;
+  border-radius: 9px;
+  box-sizing: border-box;
+  font-size: 14px;
+  background: white;
+}
+
+.product-summary {
+  color: #777;
+  font-size: 12px;
+  margin-top: 8px;
 }
 `;
 
@@ -412,18 +431,27 @@ loginForm.addEventListener("submit", async event => {
   const password =
     document.getElementById("loginPassword").value;
 
-  const { error } = await client.auth.signInWithPassword({
-    email,
-    password
-  });
+  try {
 
-  loginButton.disabled = false;
-  loginButton.textContent = "تسجيل الدخول";
+    const { error } = await client.auth.signInWithPassword({
+      email,
+      password
+    });
 
-  if (error) {
+    if (error) {
+      loginMessage.textContent =
+        "تعذر تسجيل الدخول: " + error.message;
+    }
+
+  } catch (error) {
 
     loginMessage.textContent =
-      "تعذر تسجيل الدخول: " + error.message;
+      "حدث خطأ: " + error.message;
+
+  } finally {
+
+    loginButton.disabled = false;
+    loginButton.textContent = "تسجيل الدخول";
 
   }
 
@@ -452,28 +480,31 @@ async () => {
   loginMessage.textContent =
     "جارٍ إرسال رابط الاستعادة...";
 
-  const { error } =
-    await client.auth.resetPasswordForEmail(email, {
+  try {
 
-      redirectTo:
-        window.location.origin + window.location.pathname
+    const { error } =
+      await client.auth.resetPasswordForEmail(email, {
 
-    });
+        redirectTo:
+          window.location.origin + window.location.pathname
 
-  if (error) {
+      });
+
+    if (error) throw error;
+
+    loginMessage.style.color = "green";
+
+    loginMessage.textContent =
+      "تم إرسال رابط الاستعادة إلى بريدك الإلكتروني.";
+
+  } catch (error) {
 
     loginMessage.style.color = "#b33";
 
     loginMessage.textContent =
       "سبب الخطأ: " + error.message;
 
-    return;
   }
-
-  loginMessage.style.color = "green";
-
-  loginMessage.textContent =
-    "تم إرسال رابط الاستعادة إلى بريدك الإلكتروني.";
 
 };
 
@@ -513,37 +544,44 @@ recoveryForm.addEventListener("submit", async event => {
   button.disabled = true;
   button.textContent = "جارٍ الحفظ...";
 
-  const { error } = await client.auth.updateUser({
-    password
-  });
+  try {
 
-  button.disabled = false;
-  button.textContent = "حفظ كلمة المرور الجديدة";
+    const { error } = await client.auth.updateUser({
+      password
+    });
 
-  if (error) {
+    if (error) throw error;
+
+    recoveryMode = false;
+
+    await client.auth.signOut();
+
+    history.replaceState(
+      null,
+      "",
+      window.location.pathname
+    );
+
+    showLogin();
+
+    loginMessage.style.color = "green";
+
+    loginMessage.textContent =
+      "تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.";
+
+  } catch (error) {
+
+    loginMessage.style.color = "#b33";
 
     loginMessage.textContent =
       "تعذر تغيير كلمة المرور: " + error.message;
 
-    return;
+  } finally {
+
+    button.disabled = false;
+    button.textContent = "حفظ كلمة المرور الجديدة";
+
   }
-
-  recoveryMode = false;
-
-  await client.auth.signOut();
-
-  history.replaceState(
-    null,
-    "",
-    window.location.pathname
-  );
-
-  showLogin();
-
-  loginMessage.style.color = "green";
-
-  loginMessage.textContent =
-    "تم تغيير كلمة المرور بنجاح. يمكنك تسجيل الدخول الآن.";
 
 });
 
@@ -601,7 +639,7 @@ document.getElementById("closePanel").onclick = () => {
 };
 
 // =====================================
-// أدوات مساعدة آمنة
+// أدوات مساعدة
 // =====================================
 
 function escapeHTML(value) {
@@ -684,6 +722,22 @@ document.getElementById("productsBtn").onclick = () => {
         جارٍ تحميل المنتجات...
       </div>
 
+      <input
+        type="search"
+        id="productSearch"
+        class="product-search"
+        placeholder="ابحث عن منتج باسمه..."
+      >
+
+      <select
+        id="productCategoryFilter"
+        class="product-filter"
+      >
+        <option value="">جميع التصنيفات</option>
+      </select>
+
+      <div id="productSummary" class="product-summary"></div>
+
       <div id="productList" class="product-list"></div>
 
     </div>
@@ -695,7 +749,13 @@ document.getElementById("productsBtn").onclick = () => {
 };
 
 // =====================================
-// عرض المنتجات
+// تخزين المنتجات المحملة
+// =====================================
+
+let allProducts = [];
+
+// =====================================
+// تحميل المنتجات والتصنيفات
 // =====================================
 
 async function loadProducts() {
@@ -708,84 +768,23 @@ async function loadProducts() {
 
   try {
 
-    const products = await ProductsManager.getAll();
+    allProducts = await ProductsManager.getAll();
 
     if (!document.getElementById("productList")) return;
 
-    if (products.length === 0) {
+    loadProductCategories();
 
-      list.innerHTML =
-        "<p>لا توجد منتجات حتى الآن. أضف منتجك الأول.</p>";
+    const searchInput =
+      document.getElementById("productSearch");
 
-      showProductMessage("قاعدة البيانات جاهزة لاستقبال المنتجات.");
+    const categoryFilter =
+      document.getElementById("productCategoryFilter");
 
-      return;
-    }
+    searchInput.oninput = filterProducts;
 
-    list.innerHTML = products.map(product => {
+    categoryFilter.onchange = filterProducts;
 
-      const image = product.image_url
-        ? `
-          <img
-            class="product-image"
-            src="${escapeHTML(product.image_url)}"
-            alt="${escapeHTML(product.name)}"
-            onerror="this.style.display='none'"
-          >
-        `
-        : "";
-
-      return `
-
-        <article class="product-card">
-
-          ${image}
-
-          <h3>${escapeHTML(product.name)}</h3>
-
-          <p>
-            ${escapeHTML(product.description || "لا يوجد وصف")}
-          </p>
-
-          <div class="product-price">
-            السعر: ${escapeHTML(product.price ?? 0)} ريال
-          </div>
-
-          <p>
-            التصنيف: ${escapeHTML(product.category || "غير محدد")}
-          </p>
-
-          <p>
-            المخزون: ${escapeHTML(product.stock ?? 0)}
-          </p>
-
-          <div class="product-actions">
-
-            <button
-              class="edit-product"
-              data-edit="${escapeHTML(product.id)}"
-            >
-              تعديل
-            </button>
-
-            <button
-              class="delete-product"
-              data-delete="${escapeHTML(product.id)}"
-            >
-              حذف
-            </button>
-
-          </div>
-
-        </article>
-
-      `;
-
-    }).join("");
-
-    showProductMessage(
-      "تم تحميل " + products.length + " منتج بنجاح."
-    );
+    filterProducts();
 
     loadProductCount();
 
@@ -796,7 +795,194 @@ async function loadProducts() {
       escapeHTML(error.message) +
       "</p>";
 
+    showProductMessage(
+      "حدث خطأ أثناء تحميل المنتجات.",
+      true
+    );
+
   }
+
+}
+
+// =====================================
+// استخراج التصنيفات تلقائياً
+// =====================================
+
+function loadProductCategories() {
+
+  const filter =
+    document.getElementById("productCategoryFilter");
+
+  if (!filter) return;
+
+  const categories = [
+    ...new Set(
+      allProducts
+        .map(product => String(product.category || "").trim())
+        .filter(Boolean)
+    )
+  ];
+
+  categories.sort((a, b) => a.localeCompare(b, "ar"));
+
+  filter.innerHTML =
+    '<option value="">جميع التصنيفات</option>';
+
+  categories.forEach(category => {
+
+    const option = document.createElement("option");
+
+    option.value = category;
+    option.textContent = category;
+
+    filter.appendChild(option);
+
+  });
+
+}
+
+// =====================================
+// البحث والتصفية
+// =====================================
+
+function filterProducts() {
+
+  const searchInput =
+    document.getElementById("productSearch");
+
+  const categoryFilter =
+    document.getElementById("productCategoryFilter");
+
+  if (!searchInput || !categoryFilter) return;
+
+  const search =
+    searchInput.value.trim().toLowerCase();
+
+  const category =
+    categoryFilter.value;
+
+  const filtered = allProducts.filter(product => {
+
+    const name =
+      String(product.name || "").toLowerCase();
+
+    const description =
+      String(product.description || "").toLowerCase();
+
+    const matchesSearch =
+      name.includes(search) ||
+      description.includes(search);
+
+    const matchesCategory =
+      !category ||
+      String(product.category || "").trim() === category;
+
+    return matchesSearch && matchesCategory;
+
+  });
+
+  renderProducts(filtered);
+
+}
+
+// =====================================
+// عرض المنتجات
+// =====================================
+
+function renderProducts(products) {
+
+  const list = document.getElementById("productList");
+
+  const summary =
+    document.getElementById("productSummary");
+
+  if (!list) return;
+
+  if (summary) {
+
+    summary.textContent =
+      "عدد المنتجات المعروضة: " +
+      products.length +
+      " من أصل " +
+      allProducts.length;
+
+  }
+
+  if (products.length === 0) {
+
+    list.innerHTML = `
+      <p style="text-align:center;color:#888;padding:20px">
+        لا توجد منتجات مطابقة لبحثك.
+      </p>
+    `;
+
+    return;
+  }
+
+  list.innerHTML = products.map(product => {
+
+    const image = product.image_url
+      ? `
+        <img
+          class="product-image"
+          src="${escapeHTML(product.image_url)}"
+          alt="${escapeHTML(product.name)}"
+          onerror="this.style.display='none'"
+        >
+      `
+      : "";
+
+    return `
+
+      <article class="product-card">
+
+        ${image}
+
+        <h3>${escapeHTML(product.name)}</h3>
+
+        <p>
+          ${escapeHTML(product.description || "لا يوجد وصف")}
+        </p>
+
+        <div class="product-price">
+          السعر: ${escapeHTML(product.price ?? 0)} ريال
+        </div>
+
+        <p>
+          التصنيف: ${escapeHTML(product.category || "غير محدد")}
+        </p>
+
+        <p>
+          المخزون: ${escapeHTML(product.stock ?? 0)}
+        </p>
+
+        <div class="product-actions">
+
+          <button
+            class="edit-product"
+            data-edit="${escapeHTML(product.id)}"
+          >
+            تعديل
+          </button>
+
+          <button
+            class="delete-product"
+            data-delete="${escapeHTML(product.id)}"
+          >
+            حذف
+          </button>
+
+        </div>
+
+      </article>
+
+    `;
+
+  }).join("");
+
+  showProductMessage(
+    "تم عرض المنتجات بنجاح."
+  );
 
 }
 
@@ -806,8 +992,11 @@ async function loadProducts() {
 
 function setupImagePreview() {
 
-  const input = document.getElementById("productImageFile");
-  const preview = document.getElementById("productImagePreview");
+  const input =
+    document.getElementById("productImageFile");
+
+  const preview =
+    document.getElementById("productImagePreview");
 
   if (!input || !preview) return;
 
@@ -815,13 +1004,7 @@ function setupImagePreview() {
 
     const file = input.files[0];
 
-    if (!file) {
-
-      preview.style.display = "none";
-      preview.removeAttribute("src");
-
-      return;
-    }
+    if (!file) return;
 
     if (!file.type.startsWith("image/")) {
 
@@ -898,7 +1081,7 @@ function showProductForm(product = null) {
         <input
           type="text"
           id="productCategory"
-          placeholder="التصنيف"
+          placeholder="التصنيف، مثل: المطبخ"
           value="${escapeHTML(product?.category || "")}"
         >
 
@@ -1128,7 +1311,8 @@ function openProductsAgain() {
 
 document.addEventListener("click", async event => {
 
-  const addButton = event.target.closest("#addProductBtn");
+  const addButton =
+    event.target.closest("#addProductBtn");
 
   if (addButton) {
 
@@ -1137,7 +1321,8 @@ document.addEventListener("click", async event => {
     return;
   }
 
-  const editButton = event.target.closest("[data-edit]");
+  const editButton =
+    event.target.closest("[data-edit]");
 
   if (editButton) {
 
@@ -1166,7 +1351,8 @@ document.addEventListener("click", async event => {
     return;
   }
 
-  const deleteButton = event.target.closest("[data-delete]");
+  const deleteButton =
+    event.target.closest("[data-delete]");
 
   if (deleteButton) {
 
