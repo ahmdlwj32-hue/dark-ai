@@ -3,6 +3,8 @@
 // =====================================
 
 const SUPABASE_URL = "https://beumygquyxotdvthitcq.supabase.co";
+
+// أبقِ Publishable Key الحالي الموجود في ملفك كما هو
 const SUPABASE_KEY = "sb_publishable_kDtG8O1WMK_6CYaddWOeOQ_cmQ6Gs3D";
 
 const client = window.supabase.createClient(
@@ -217,6 +219,28 @@ loginStyle.textContent = `
   object-fit: contain;
   border-radius: 8px;
   margin-bottom: 10px;
+}
+
+.product-preview {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 5px;
+  display: none;
+}
+
+.image-label {
+  font-weight: bold;
+  color: #101a2b;
+  margin-top: 8px;
+}
+
+#productFormMessage {
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 `;
 
@@ -682,99 +706,158 @@ async function loadProducts() {
 
   list.innerHTML = "<p>جارٍ تحميل المنتجات...</p>";
 
-  const products = await ProductsManager.getAll();
+  try {
 
-  if (!document.getElementById("productList")) return;
+    const products = await ProductsManager.getAll();
 
-  if (!products) {
+    if (!document.getElementById("productList")) return;
+
+    if (products.length === 0) {
+
+      list.innerHTML =
+        "<p>لا توجد منتجات حتى الآن. أضف منتجك الأول.</p>";
+
+      showProductMessage("قاعدة البيانات جاهزة لاستقبال المنتجات.");
+
+      return;
+    }
+
+    list.innerHTML = products.map(product => {
+
+      const image = product.image_url
+        ? `
+          <img
+            class="product-image"
+            src="${escapeHTML(product.image_url)}"
+            alt="${escapeHTML(product.name)}"
+            onerror="this.style.display='none'"
+          >
+        `
+        : "";
+
+      return `
+
+        <article class="product-card">
+
+          ${image}
+
+          <h3>${escapeHTML(product.name)}</h3>
+
+          <p>
+            ${escapeHTML(product.description || "لا يوجد وصف")}
+          </p>
+
+          <div class="product-price">
+            السعر: ${escapeHTML(product.price ?? 0)} ريال
+          </div>
+
+          <p>
+            التصنيف: ${escapeHTML(product.category || "غير محدد")}
+          </p>
+
+          <p>
+            المخزون: ${escapeHTML(product.stock ?? 0)}
+          </p>
+
+          <div class="product-actions">
+
+            <button
+              class="edit-product"
+              data-edit="${escapeHTML(product.id)}"
+            >
+              تعديل
+            </button>
+
+            <button
+              class="delete-product"
+              data-delete="${escapeHTML(product.id)}"
+            >
+              حذف
+            </button>
+
+          </div>
+
+        </article>
+
+      `;
+
+    }).join("");
+
+    showProductMessage(
+      "تم تحميل " + products.length + " منتج بنجاح."
+    );
+
+    loadProductCount();
+
+  } catch (error) {
 
     list.innerHTML =
-      "<p>تعذر تحميل المنتجات.</p>";
+      "<p>تعذر تحميل المنتجات: " +
+      escapeHTML(error.message) +
+      "</p>";
 
-    return;
   }
-
-  if (products.length === 0) {
-
-    list.innerHTML =
-      "<p>لا توجد منتجات حتى الآن. أضف منتجك الأول.</p>";
-
-    showProductMessage("قاعدة البيانات جاهزة لاستقبال المنتجات.");
-
-    return;
-  }
-
-  list.innerHTML = products.map(product => {
-
-    const image = product.image_url
-      ? `
-        <img
-          class="product-image"
-          src="${escapeHTML(product.image_url)}"
-          alt="${escapeHTML(product.name)}"
-          onerror="this.style.display='none'"
-        >
-      `
-      : "";
-
-    return `
-
-      <article class="product-card">
-
-        ${image}
-
-        <h3>${escapeHTML(product.name)}</h3>
-
-        <p>
-          ${escapeHTML(product.description || "لا يوجد وصف")}
-        </p>
-
-        <div class="product-price">
-          السعر: ${escapeHTML(product.price ?? 0)} ريال
-        </div>
-
-        <p>
-          التصنيف: ${escapeHTML(product.category || "غير محدد")}
-        </p>
-
-        <p>
-          المخزون: ${escapeHTML(product.stock ?? 0)}
-        </p>
-
-        <div class="product-actions">
-
-          <button
-            class="edit-product"
-            data-edit="${escapeHTML(product.id)}"
-          >
-            تعديل
-          </button>
-
-          <button
-            class="delete-product"
-            data-delete="${escapeHTML(product.id)}"
-          >
-            حذف
-          </button>
-
-        </div>
-
-      </article>
-
-    `;
-
-  }).join("");
-
-  showProductMessage(
-    "تم تحميل " + products.length + " منتج بنجاح."
-  );
-
-  loadProductCount();
 
 }
 
 // =====================================
-// نموذج إضافة منتج
+// معاينة الصورة
+// =====================================
+
+function setupImagePreview() {
+
+  const input = document.getElementById("productImageFile");
+  const preview = document.getElementById("productImagePreview");
+
+  if (!input || !preview) return;
+
+  input.addEventListener("change", () => {
+
+    const file = input.files[0];
+
+    if (!file) {
+
+      preview.style.display = "none";
+      preview.removeAttribute("src");
+
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+
+      alert("يرجى اختيار ملف صورة.");
+
+      input.value = "";
+
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+
+      alert("حجم الصورة يجب ألا يتجاوز 5 ميجابايت.");
+
+      input.value = "";
+
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = event => {
+
+      preview.src = event.target.result;
+      preview.style.display = "block";
+
+    };
+
+    reader.readAsDataURL(file);
+
+  });
+
+}
+
+// =====================================
+// نموذج إضافة وتعديل منتج
 // =====================================
 
 function showProductForm(product = null) {
@@ -828,10 +911,32 @@ function showProductForm(product = null) {
           value="${escapeHTML(product?.stock ?? 0)}"
         >
 
+        <label class="image-label">
+          اختر صورة المنتج من هاتفك
+        </label>
+
+        <input
+          type="file"
+          id="productImageFile"
+          accept="image/*"
+        >
+
+        <small>
+          الحد الأقصى لحجم الصورة 5 ميجابايت.
+        </small>
+
+        <img
+          id="productImagePreview"
+          class="product-preview"
+          alt="معاينة صورة المنتج"
+          src="${escapeHTML(product?.image_url || "")}"
+          style="${product?.image_url ? "display:block" : "display:none"}"
+        >
+
         <input
           type="url"
           id="productImage"
-          placeholder="رابط صورة المنتج (اختياري)"
+          placeholder="أو ضع رابط صورة اختياري"
           value="${escapeHTML(product?.image_url || "")}"
         >
 
@@ -859,17 +964,11 @@ function showProductForm(product = null) {
 
   );
 
+  setupImagePreview();
+
   document.getElementById("cancelProductBtn").onclick = () => {
 
-    show("إدارة المنتجات", `
-      <button class="product-primary" id="addProductBtn">
-        + إضافة منتج جديد
-      </button>
-      <div id="productMessage" class="product-message"></div>
-      <div id="productList" class="product-list"></div>
-    `);
-
-    loadProducts();
+    openProductsAgain();
 
   };
 
@@ -899,7 +998,10 @@ function showProductForm(product = null) {
     const stock =
       Number(document.getElementById("productStock").value);
 
-    const image_url =
+    const imageFile =
+      document.getElementById("productImageFile").files[0];
+
+    let image_url =
       document.getElementById("productImage").value.trim();
 
     if (!name) {
@@ -923,19 +1025,53 @@ function showProductForm(product = null) {
       return;
     }
 
-    const data = {
-      name,
-      description,
-      price,
-      category,
-      stock,
-      image_url
-    };
+    if (imageFile) {
+
+      if (!imageFile.type.startsWith("image/")) {
+
+        message.textContent = "الملف المختار ليس صورة.";
+
+        return;
+      }
+
+      if (imageFile.size > 5 * 1024 * 1024) {
+
+        message.textContent =
+          "حجم الصورة يجب ألا يتجاوز 5 ميجابايت.";
+
+        return;
+      }
+
+    }
 
     button.disabled = true;
-    button.textContent = "جارٍ الحفظ...";
 
     try {
+
+      if (imageFile) {
+
+        button.textContent = "جارٍ رفع الصورة...";
+
+        message.style.color = "#92733d";
+
+        message.textContent =
+          "يرجى الانتظار حتى اكتمال رفع الصورة.";
+
+        image_url =
+          await ProductsManager.uploadImage(imageFile);
+
+      }
+
+      const data = {
+        name,
+        description,
+        price,
+        category,
+        stock,
+        image_url
+      };
+
+      button.textContent = "جارٍ حفظ المنتج...";
 
       if (editing) {
 
@@ -946,6 +1082,11 @@ function showProductForm(product = null) {
         await ProductsManager.add(data);
 
       }
+
+      message.style.color = "green";
+
+      message.textContent =
+        "تم حفظ المنتج بنجاح.";
 
       panel.close();
 
@@ -1002,15 +1143,23 @@ document.addEventListener("click", async event => {
 
     const id = editButton.dataset.edit;
 
-    const products = await ProductsManager.getAll();
+    try {
 
-    const product = products.find(item =>
-      String(item.id) === String(id)
-    );
+      const products = await ProductsManager.getAll();
 
-    if (product) {
+      const product = products.find(item =>
+        String(item.id) === String(id)
+      );
 
-      showProductForm(product);
+      if (product) {
+
+        showProductForm(product);
+
+      }
+
+    } catch (error) {
+
+      alert("تعذر تحميل المنتج: " + error.message);
 
     }
 
@@ -1080,81 +1229,7 @@ document.querySelectorAll(".agent").forEach(btn => {
 });
 
 // =====================================
-// صناعة المحتوى
-// =====================================
-
-document.getElementById("contentBtn").onclick = () => {
-
-  show("صناعة المحتوى", `
-
-    <p>
-      إنشاء المنشورات والإعلانات وأوصاف المنتجات.
-    </p>
-
-    <p>
-      <b>حالة القسم:</b> قيد التطوير.
-    </p>
-
-  `);
-
-};
-
-// =====================================
-// خطة النشر
-// =====================================
-
-document.getElementById("calendarBtn").onclick = () => {
-
-  show("خطة النشر", `
-
-    <p>
-      تنظيم المنشورات والقصص ومقاطع Reels.
-    </p>
-
-    <p>
-      <b>حالة القسم:</b> قيد التطوير.
-    </p>
-
-  `);
-
-};
-
-// =====================================
-// الإعدادات
-// =====================================
-
-document.getElementById("settingsBtn").onclick = () => {
-
-  show("إعدادات دارك", `
-
-    <p>
-      <b>النشاط:</b>
-      متجر إلكتروني للمواد المنزلية
-    </p>
-
-    <p>
-      <b>النطاق:</b>
-      حضرموت – التوصيل إلى جميع المحافظات
-    </p>
-
-    <p>
-      <b>العملة:</b>
-      الريال اليمني
-    </p>
-
-    <button
-      class="product-primary"
-      onclick="logoutDARKAI()"
-    >
-      تسجيل الخروج
-    </button>
-
-  `);
-
-};
-
-// =====================================
-// مراقبة جلسة Supabase
+// مراقبة حالة تسجيل الدخول
 // =====================================
 
 client.auth.onAuthStateChange((event, session) => {
@@ -1168,13 +1243,15 @@ client.auth.onAuthStateChange((event, session) => {
     return;
   }
 
-  if (event === "SIGNED_IN" && !recoveryMode) {
+  if (session) {
 
-    showDashboard();
+    if (!recoveryMode) {
 
-  }
+      showDashboard();
 
-  if (event === "SIGNED_OUT") {
+    }
+
+  } else {
 
     showLogin();
 
@@ -1183,24 +1260,25 @@ client.auth.onAuthStateChange((event, session) => {
 });
 
 // =====================================
-// التحقق من الجلسة
+// فحص الجلسة عند فتح الموقع
 // =====================================
 
-async function checkSession() {
+async function initializeDARKAI() {
 
-  if (recoveryMode) {
+  const { data, error } = await client.auth.getSession();
 
-    showRecovery();
+  if (error) {
+
+    console.error("Session error:", error.message);
+
+    showLogin();
 
     return;
   }
 
-  const { data, error } =
-    await client.auth.getSession();
+  if (recoveryMode) {
 
-  if (error) {
-
-    showLogin();
+    showRecovery();
 
     return;
   }
@@ -1217,20 +1295,8 @@ async function checkSession() {
 
 }
 
-checkSession();
+initializeDARKAI();
 
 // =====================================
-// Service Worker
+// DARK AI - END
 // =====================================
-
-if ("serviceWorker" in navigator) {
-
-  window.addEventListener("load", () => {
-
-    navigator.serviceWorker
-      .register("./sw.js")
-      .catch(() => {});
-
-  });
-
-}
